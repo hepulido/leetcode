@@ -1,6 +1,11 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import authModalState  from "@/atoms/authModalAtom";
+import { auth, firestore } from "@/firebase/firebase";
 import { useSetRecoilState } from "recoil";
+import { useCreateUserWithEmailAndPassword } from "react-firebase-hooks/auth";
+import { useRouter } from "next/navigation";
+import { doc, setDoc } from "firebase/firestore";
+import { toast } from "react-toastify";
 type SignupProps = {
     
 };
@@ -11,15 +16,51 @@ const Signup:React.FC<SignupProps> = () => {
 	const handleClick = () => {
 		setAuthModalState((prev) => ({ ...prev, type: "login" }));
     }
+	const [inputs, setInputs] = useState({ email: "", displayName: "", password: "" });
+	const router = useRouter();
+	const [createUserWithEmailAndPassword, user, loading, error] = useCreateUserWithEmailAndPassword(auth);
+	const handleChangeInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+		setInputs((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+	};
+	const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
+		e.preventDefault();
+		if (!inputs.email || !inputs.password || !inputs.displayName) return alert("Please fill all fields");
+		try {
+			// toast.loading("Creating your account", { position: "top-center", toastId: "loadingToast" });
+			const newUser = await createUserWithEmailAndPassword(inputs.email, inputs.password);
+			if (!newUser) return;
+			const userData = {
+				uid: newUser.user.uid,
+				email: newUser.user.email,
+				displayName: inputs.displayName,
+				createdAt: Date.now(),
+				updatedAt: Date.now(),
+				likedProblems: [],
+				dislikedProblems: [],
+				solvedProblems: [],
+				starredProblems: [],
+			};
+			router.push("/")
+			await setDoc(doc(firestore, "users", newUser.user.uid), userData);
+		} catch (error: any) {
+			// toast.error(error.message, { position: "top-center" });
+		} finally {
+			// toast.dismiss("loadingToast");
+		}
+	};
+
+	useEffect(() => {
+		if (error) alert(error.message);
+	}, [error]);
         return (
-		<form className='space-y-6 px-6 pb-4'>
+		<form className='space-y-6 px-6 pb-4' onSubmit={handleRegister}>
 			<h3 className='text-xl font-medium text-white'>Register to LeetClone</h3>
 			<div>
 				<label htmlFor='email' className='text-sm font-medium block mb-2 text-gray-300'>
 					Email
 				</label>
 				<input
-					// onChange={handleChangeInput}
+					onChange={handleChangeInput}
 					type='email'
 					name='email'
 					id='email'
@@ -35,7 +76,7 @@ const Signup:React.FC<SignupProps> = () => {
 					Display Name
 				</label>
 				<input
-					// onChange={handleChangeInput}
+					onChange={handleChangeInput}
 					type='displayName'
 					name='displayName'
 					id='displayName'
@@ -51,7 +92,7 @@ const Signup:React.FC<SignupProps> = () => {
 					Password
 				</label>
 				<input
-					// onChange={handleChangeInput}
+					onChange={handleChangeInput}
 					type='password'
 					name='password'
 					id='password'
@@ -64,12 +105,12 @@ const Signup:React.FC<SignupProps> = () => {
 			</div>
 
 			<button
-				type='submit'
+				type='submit' 
 				className='w-full text-white focus:ring-blue-300 font-medium rounded-lg
             text-sm px-5 py-2.5 text-center bg-brand-orange hover:bg-brand-orange-s
         '
 			>
-				Register
+				{loading ? "Registering..." : "Register"}
 			</button>
 
 			<div className='text-sm font-medium text-gray-300'>
